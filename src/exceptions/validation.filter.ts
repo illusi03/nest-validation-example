@@ -34,15 +34,23 @@ export class ValidationFilter implements ExceptionFilter {
 export const exceptionFactory = (errors: ValidationError[]) => {
   const errorValidation = {};
   let errorMessages = [];
-  const parseErrorMessage = (errObject) => {
-    const propertyKey = errObject.property;
-    const messages = Object.values(errObject?.constraints);
-    errorValidation[`${propertyKey}`] = [...messages];
-    errorMessages.push(messages); // Default property message error
-    return true;
+  const parseErrorMessage = (errObject, propertyKey) => {
+    const isNested =
+      typeof errObject?.children !== 'undefined' &&
+      errObject?.children.length > 0;
+    if (!isNested) {
+      const messages = Object.values(errObject?.constraints);
+      errorValidation[`${propertyKey}`] = [...messages];
+      errorMessages.push(messages); // Default property message error
+      return true;
+    }
+    errObject?.children.map((valChild) => {
+      const nextPropertyKey = `${propertyKey}.${valChild.property}`;
+      parseErrorMessage(valChild, nextPropertyKey);
+    });
   };
   errors.forEach((err) => {
-    parseErrorMessage(err);
+    parseErrorMessage(err, err.property);
   });
   errorMessages = errorMessages.flat(1); // Default property message error
   return new ValidationException(errorValidation, errorMessages);
